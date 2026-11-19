@@ -1,6 +1,6 @@
 'use strict';
-// Run in a public distribution repository. Source releases are read
-// anonymously; the target repository's own GitHub Actions token publishes.
+// Run in a public distribution repository. The repository's own GitHub
+// Actions token can raise API rate limits and publishes the verified release.
 const crypto=require('node:crypto');
 const fs=require('node:fs/promises');
 const os=require('node:os');
@@ -34,10 +34,16 @@ function selectAssets(selected,kind){
  });
  return {filename,chosen};
 }
-async function fetchBytes(url,{allow404=false,maxBytes=80*1024*1024}={}){
- const response=await fetch(url,{headers:{'User-Agent':'ATGV-public-release-mirror','Accept':'application/vnd.github+json'},signal:AbortSignal.timeout(60000)});
+async function fetchBytes(url,{allow404=false,maxBytes=80*1024*1024,fetchImpl=fetch,token=process.env.GH_TOKEN||''}={}){
+ const destination=new URL(url),headers={'User-Agent':'ATGV-public-release-mirror','Accept':'application/vnd.github+json'};
+ // Never forward the Actions credential to download URLs or other hosts.
+ if(destination.protocol==='https:'&&destination.hostname==='api.github.com'&&!destination.port&&token)headers.Authorization='Bearer '+token;
+ const response=await fetchImpl(url,{headers,signal:AbortSignal.timeout(60000)});
  if(response.status===404&&allow404)return null;
- if(!response.ok)throw Error('Public GitHub request failed: HTTP '+response.status);
+ if(!response.ok){
+  const limit=response.status===403&&response.headers.get('x-ratelimit-remaining')==='0'?' GitHub API rate limit reached.':'';
+  throw Error('GitHub request failed for '+destination.host+destination.pathname+': HTTP '+response.status+'.'+limit);
+ }
  const length=Number(response.headers.get('content-length')||0);
  if(length>maxBytes)throw Error('Release download exceeds size limit.');
  const bytes=Buffer.from(await response.arrayBuffer());
@@ -84,4 +90,4 @@ async function mirror({kind,target=process.env.GITHUB_REPOSITORY,fetcher=fetchBy
  }finally{await fs.rm(temp,{recursive:true,force:true});}
 }
 if(require.main===module)mirror({kind:process.env.ATGV_RELEASE_KIND}).then(result=>console.log(JSON.stringify(result))).catch(error=>{console.error(error.message);process.exitCode=1;});
-module.exports={configs,versionFor,latestRelease,selectAssets,assetUrl,verifyChecksum,mirror};
+module.exports={configs,versionFor,latestRelease,selectAssets,assetUrl,verifyChecksum,fetchBytes,mirror};
