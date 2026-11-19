@@ -29,4 +29,5 @@ jobs:
         env:
           ATGV_RELEASE_KIND: library
           GH_TOKEN: ${{ github.token }}
+          ATGV_SOURCE_READ_TOKEN: ${{ secrets.ATGV_SOURCE_READ_TOKEN }}
         run: node scripts/mirror-public-release.js
