@@ -34,15 +34,20 @@ function selectAssets(selected,kind){
  });
  return {filename,chosen};
 }
-async function fetchBytes(url,{allow404=false,maxBytes=80*1024*1024,fetchImpl=fetch,token=process.env.GH_TOKEN||''}={}){
- const destination=new URL(url),headers={'User-Agent':'ATGV-public-release-mirror','Accept':'application/vnd.github+json'};
+async function fetchBytes(url,{allow404=false,maxBytes=80*1024*1024,fetchImpl=fetch,token=process.env.GH_TOKEN||'',sourceToken=process.env.ATGV_SOURCE_READ_TOKEN||'',accept='application/vnd.github+json'}={}){
+ const destination=new URL(url),headers={'User-Agent':'ATGV-public-release-mirror','Accept':accept};
  // Never forward the Actions credential to download URLs or other hosts.
  // Authenticate only release API requests for the approved public mirrors.
  // The mirror's Actions token must never be forwarded to a separate source repo.
  const mirrorApi=Object.values(configs).some(cfg=>destination.pathname===`/repos/${cfg.target}/releases`||destination.pathname.startsWith(`/repos/${cfg.target}/releases/`));
- if(destination.protocol==='https:'&&destination.hostname==='api.github.com'&&!destination.port&&mirrorApi&&token)headers.Authorization='Bearer '+token;
+ const sourceApi=Object.values(configs).some(cfg=>destination.pathname===`/repos/${cfg.source}/releases`||destination.pathname.startsWith(`/repos/${cfg.source}/releases/`));
+ if(destination.protocol==='https:'&&destination.hostname==='api.github.com'&&!destination.port){
+  if(mirrorApi&&token)headers.Authorization='Bearer '+token;
+  else if(sourceApi&&sourceToken)headers.Authorization='Bearer '+sourceToken;
+ }
  const response=await fetchImpl(url,{headers,signal:AbortSignal.timeout(60000)});
  if(response.status===404&&allow404)return null;
+ if(response.status===404&&sourceApi&&!sourceToken)throw Error('Private source Releases API returned HTTP 404. Add ATGV_SOURCE_READ_TOKEN under GitHub Actions secrets in this public mirror repository (fine-grained token with Contents: Read for the private source).');
  if(!response.ok){
   const limit=response.status===403&&response.headers.get('x-ratelimit-remaining')==='0'?' GitHub API rate limit reached.':'';
   throw Error('GitHub request failed for '+destination.host+destination.pathname+': HTTP '+response.status+'.'+limit);
@@ -65,7 +70,13 @@ async function mirror({kind,target=process.env.GITHUB_REPOSITORY,fetcher=fetchBy
  const selected=latestRelease(JSON.parse(json.toString('utf8')),kind);
  if(!selected)return {status:'no-source-release'};
  const {row,parsed}=selected,{filename,chosen}=selectAssets(selected,kind);
- const [artifact,checksum]=await Promise.all(chosen.map(asset=>fetcher(asset.browser_download_url,{maxBytes:asset.size})));
+ // Private source assets must be retrieved through the authenticated Releases
+ // asset API; browser download URLs are not accessible anonymously.
+ const [artifact,checksum]=await Promise.all(chosen.map(asset=>{
+  const api=String(asset.url||'');
+  if(!/^https:\/\/api\.github\.com\/repos\/[^/]+\/[^/]+\/releases\/assets\/\d+$/.test(api)||!api.startsWith(`https://api.github.com/repos/${cfg.source}/releases/assets/`))throw Error('Source asset API URL is not trusted.');
+  return fetcher(api,{maxBytes:asset.size,accept:'application/octet-stream'});
+ }));
  if(artifact.length!==chosen[0].size||checksum.length!==chosen[1].size)throw Error('Source asset size differs from the release metadata.');
  verifyChecksum(artifact,checksum,filename);
  const marker=`ATGV source: https://github.com/${cfg.source}/commit/${row.target_commitish}`;
