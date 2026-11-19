@@ -37,7 +37,10 @@ function selectAssets(selected,kind){
 async function fetchBytes(url,{allow404=false,maxBytes=80*1024*1024,fetchImpl=fetch,token=process.env.GH_TOKEN||''}={}){
  const destination=new URL(url),headers={'User-Agent':'ATGV-public-release-mirror','Accept':'application/vnd.github+json'};
  // Never forward the Actions credential to download URLs or other hosts.
- if(destination.protocol==='https:'&&destination.hostname==='api.github.com'&&!destination.port&&token)headers.Authorization='Bearer '+token;
+ // Authenticate only release API requests for the approved public mirrors.
+ // The mirror's Actions token must never be forwarded to a separate source repo.
+ const mirrorApi=Object.values(configs).some(cfg=>destination.pathname===`/repos/${cfg.target}/releases`||destination.pathname.startsWith(`/repos/${cfg.target}/releases/`));
+ if(destination.protocol==='https:'&&destination.hostname==='api.github.com'&&!destination.port&&mirrorApi&&token)headers.Authorization='Bearer '+token;
  const response=await fetchImpl(url,{headers,signal:AbortSignal.timeout(60000)});
  if(response.status===404&&allow404)return null;
  if(!response.ok){
