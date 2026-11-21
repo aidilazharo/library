@@ -9,3 +9,5 @@ The Library source component restarts at semantic version `0.0.0`. This reposito
 The v0.0.0 source archive includes independently versioned metadata for all 18 SDLC role agents in `roles/agents.json` and excludes superseded design-preview screenshots. Verify the published `library-source.sha256` before using the archive.
 
 Library v0.0.1 decision-memory source now includes 14 categorized `.memory/*.json` files, version-increment checks, and the single overwritten `RELEASE.md`.
+
+The Library v0.0.2 source release retains `.memory` only in the Git repository. All downloadable source ZIPs exclude `.memory`, with archive contents checked before publication.
