@@ -11,3 +11,5 @@ The v0.0.0 source archive includes independently versioned metadata for all 18 S
 Library v0.0.1 decision-memory source now includes 14 categorized `.memory/*.json` files, version-increment checks, and the single overwritten `RELEASE.md`.
 
 The Library v0.0.2 source release retains `.memory` only in the Git repository. All downloadable source ZIPs exclude `.memory`, with archive contents checked before publication.
+
+Library v0.0.3 keeps `.memory` in Git source only. The published ZIP excludes it, and GitHub Actions verifies the complete extracted archive test suite without `.memory` before mirroring.
