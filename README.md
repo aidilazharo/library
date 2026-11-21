@@ -13,3 +13,5 @@ Library v0.0.1 decision-memory source now includes 14 categorized `.memory/*.jso
 The Library v0.0.2 source release retains `.memory` only in the Git repository. All downloadable source ZIPs exclude `.memory`, with archive contents checked before publication.
 
 Library v0.0.3 keeps `.memory` in Git source only. The published ZIP excludes it, and GitHub Actions verifies the complete extracted archive test suite without `.memory` before mirroring.
+
+Library v0.0.4 documents source-only AI coding memory and the unified ATGV error folder `.atgv/src/error-logs`. Its release ZIP excludes `.memory` and preserves extracted-archive validation.
